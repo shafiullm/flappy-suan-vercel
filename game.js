@@ -213,6 +213,22 @@ class BirthdayAudio {
     }
 }
 
+// --- Bird Sprite Images ---
+const birdImages = {
+    default: new Image(),
+    happy: new Image(),
+    surprised: new Image(),
+};
+birdImages.default.src = 'default.png';
+birdImages.happy.src = 'happy.png';
+birdImages.surprised.src = 'surprised.png';
+
+function getBirdImage(face) {
+    if (face === 'happy') return birdImages.happy;
+    if (face === 'surprised') return birdImages.surprised;
+    return birdImages.default;
+}
+
 // --- Bird ---
 class Bird {
     constructor() {
@@ -252,39 +268,9 @@ class Bird {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
-
-        // Placeholder: pink circle with face
-        ctx.beginPath();
-        ctx.arc(0, 0, BIRD_CONFIG.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#F8BBD0';
-        ctx.fill();
-        ctx.strokeStyle = '#F06292';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-
-        // Eyes
-        ctx.fillStyle = '#333';
-        ctx.beginPath();
-        ctx.arc(-6, -5, 3, 0, Math.PI * 2);
-        ctx.arc(6, -5, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Smile
-        ctx.beginPath();
-        ctx.arc(0, 2, 7, 0.1 * Math.PI, 0.9 * Math.PI);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Blush
-        ctx.fillStyle = 'rgba(236, 64, 122, 0.3)';
-        ctx.beginPath();
-        ctx.ellipse(-10, 2, 4, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(10, 2, 4, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-
+        const img = getBirdImage(this.face);
+        const s = BIRD_CONFIG.radius * 2 + 4;
+        ctx.drawImage(img, -s / 2, -s / 2, s, s);
         ctx.restore();
     }
 
@@ -669,30 +655,8 @@ function drawMenu(ctx) {
     ctx.scale(scaleX, scaleY);
 
     // Draw bird at origin (scaled)
-    ctx.beginPath();
-    ctx.arc(0, 0, BIRD_CONFIG.radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#F8BBD0';
-    ctx.fill();
-    ctx.strokeStyle = '#F06292';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(-6, -5, 3, 0, Math.PI * 2);
-    ctx.arc(6, -5, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 2, 7, 0.1 * Math.PI, 0.9 * Math.PI);
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(236, 64, 122, 0.3)';
-    ctx.beginPath();
-    ctx.ellipse(-10, 2, 4, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(10, 2, 4, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
+    const menuBirdS = BIRD_CONFIG.radius * 2 + 4;
+    ctx.drawImage(birdImages.default, -menuBirdS / 2, -menuBirdS / 2, menuBirdS, menuBirdS);
 
     ctx.restore();
 
@@ -836,127 +800,9 @@ function drawPlayingState(ctx) {
     ctx.scale(scaleX, scaleY);
     ctx.rotate(game.bird.rotation);
 
-    const birdFace = game.bird.face;
-
-    // Draw bird body
-    ctx.beginPath();
-    ctx.arc(0, 0, BIRD_CONFIG.radius, 0, Math.PI * 2);
-    ctx.fillStyle = birdFace === 'hurt' ? '#EF9A9A' : '#F8BBD0';
-    ctx.fill();
-    ctx.strokeStyle = birdFace === 'hurt' ? '#E53935' : '#F06292';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-
-    if (birdFace === 'surprised') {
-        // Surprised eyes: wide open circles (O  O)
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(-6, -5, 4.5, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(6, -5, 4.5, 0, Math.PI * 2);
-        ctx.stroke();
-        // Pupils
-        ctx.fillStyle = '#333';
-        ctx.beginPath();
-        ctx.arc(-6, -5, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(6, -5, 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Open mouth (O shape)
-        ctx.beginPath();
-        ctx.ellipse(0, 4, 5, 6, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1.8;
-        ctx.stroke();
-
-        // Bright blush
-        ctx.fillStyle = 'rgba(233, 30, 99, 0.5)';
-        ctx.beginPath();
-        ctx.ellipse(-12, 3, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(12, 3, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-    } else if (birdFace === 'happy') {
-        // Happy eyes: closed happy arcs (^  ^)
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(-6, -4, 3.5, Math.PI, 0);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(6, -4, 3.5, Math.PI, 0);
-        ctx.stroke();
-
-        // Big open smile
-        ctx.beginPath();
-        ctx.arc(0, 2, 8, 0.1 * Math.PI, 0.9 * Math.PI);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1.8;
-        ctx.stroke();
-
-        // Brighter blush
-        ctx.fillStyle = 'rgba(233, 30, 99, 0.45)';
-        ctx.beginPath();
-        ctx.ellipse(-11, 3, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(11, 3, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-    } else if (birdFace === 'hurt') {
-        // X eyes
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        // Left X
-        ctx.beginPath();
-        ctx.moveTo(-8, -7); ctx.lineTo(-4, -3);
-        ctx.moveTo(-4, -7); ctx.lineTo(-8, -3);
-        ctx.stroke();
-        // Right X
-        ctx.beginPath();
-        ctx.moveTo(4, -7); ctx.lineTo(8, -3);
-        ctx.moveTo(8, -7); ctx.lineTo(4, -3);
-        ctx.stroke();
-
-        // Wavy frown
-        ctx.beginPath();
-        ctx.moveTo(-6, 5);
-        ctx.quadraticCurveTo(-3, 1, 0, 5);
-        ctx.quadraticCurveTo(3, 1, 6, 5);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-    } else {
-        // Normal face (default)
-        ctx.fillStyle = '#333';
-        ctx.beginPath();
-        ctx.arc(-6, -5, 3, 0, Math.PI * 2);
-        ctx.arc(6, -5, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(0, 2, 7, 0.1 * Math.PI, 0.9 * Math.PI);
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        ctx.fillStyle = 'rgba(236, 64, 122, 0.3)';
-        ctx.beginPath();
-        ctx.ellipse(-10, 2, 4, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(10, 2, 4, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
-    }
+    const birdImg = getBirdImage(game.bird.face);
+    const birdS = BIRD_CONFIG.radius * 2 + 4;
+    ctx.drawImage(birdImg, -birdS / 2, -birdS / 2, birdS, birdS);
 
     ctx.restore();
 
