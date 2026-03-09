@@ -684,8 +684,8 @@ function drawMenu(ctx) {
     ctx.translate(w / 2, bobY);
     ctx.scale(scaleX, scaleY);
 
-    // Draw bird at origin (scaled)
-    const menuBirdS = BIRD_CONFIG.radius * 2 + 4;
+    // Draw bird at origin (scaled) — larger scale for menu prominence
+    const menuBirdS = (BIRD_CONFIG.radius * 2 + 4) * 2;
     ctx.drawImage(birdImages.default, -menuBirdS / 2, -menuBirdS / 2, menuBirdS, menuBirdS);
 
     ctx.restore();
@@ -736,13 +736,21 @@ function drawLevelSelect(ctx) {
     const btnW = 230 * scaleX;
     const btnH = 70 * scaleY;
 
+    // On March 15: HBD=darker, CASUAL=lighter (default). Any other day: swap colors.
+    const today = new Date();
+    const isMarch15 = today.getMonth() === 2 && today.getDate() === 15;
+    const hbdBg     = isMarch15 ? '#EC407A' : '#F48FB1';
+    const hbdBorder = isMarch15 ? '#C2185B' : '#EC407A';
+    const caseBg     = isMarch15 ? '#F48FB1' : '#EC407A';
+    const caseBorder = isMarch15 ? '#EC407A' : '#C2185B';
+
     const hbdY = (contentStart + 42) * scaleY;
-    drawButton(ctx, 'HBD', (w - btnW) / 2, hbdY, btnW, btnH, '#EC407A', '#C2185B');
+    drawButton(ctx, 'HBD', (w - btnW) / 2, hbdY, btnW, btnH, hbdBg, hbdBorder);
     game.hbdBtn = { x: (w - btnW) / 2, y: hbdY, w: btnW, h: btnH };
 
     // CASUAL button
     const casualY = (contentStart + 132) * scaleY;
-    drawButton(ctx, 'CASUAL', (w - btnW) / 2, casualY, btnW, btnH, '#F48FB1', '#EC407A');
+    drawButton(ctx, 'CASUAL', (w - btnW) / 2, casualY, btnW, btnH, caseBg, caseBorder);
     game.casualBtn = { x: (w - btnW) / 2, y: casualY, w: btnW, h: btnH };
 
     // BACK button
@@ -913,9 +921,12 @@ function drawGameOver(ctx) {
     game.changeNameBtn = null;
 
     if (isCasual) {
+        // Push leaderboard down when NEW BEST badge is shown to avoid overlap
+        const lbTopOffset = game.isNewHighScore ? 136 : 122;
+
         // Leaderboard container bounds
         const lbX = panelX + 10 * scaleX;
-        const lbY = panelY + 122 * scaleY;
+        const lbY = panelY + lbTopOffset * scaleY;
         const lbW = panelW - 20 * scaleX;
 
         // Pre-compute container height for drawing border first
@@ -926,7 +937,7 @@ function drawGameOver(ctx) {
             const lbData = game.leaderboardData;
             const playerInTop5c = lbData.top5.some(r => r.playerId === playerUID);
             const rowCount = Math.max(lbData.top5.length, 1);
-            lbH = (30 + rowCount * 22 + (!playerInTop5c && lbData.personalBest !== null ? 36 : 0) + 2) * scaleY;
+            lbH = (38 + rowCount * 22 + (!playerInTop5c && lbData.personalBest !== null ? 36 : 0) - 8) * scaleY;
         }
 
         // Draw leaderboard container
@@ -942,7 +953,7 @@ function drawGameOver(ctx) {
         ctx.textAlign = 'center';
         ctx.fillText('Leaderboard', w / 2, lbY + 13 * scaleY);
 
-        let curY = lbY + 30 * scaleY;
+        let curY = lbY + 36 * scaleY;
 
         if (game.leaderboardLoading) {
             ctx.font = `${13 * s}px Arial, sans-serif`;
@@ -1537,8 +1548,9 @@ function update() {
     }
 
     // Ground scroll (stop when cake is reached)
+    // Wrap at 20 to match the dot spacing used in drawGroundFn, ensuring smooth animation
     if (!game.cakeReached) {
-        game.groundOffset = (game.groundOffset + GROUND.scrollSpeed) % 24;
+        game.groundOffset = (game.groundOffset + GROUND.scrollSpeed) % 20;
     }
 }
 
