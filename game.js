@@ -49,6 +49,32 @@ const GameMode = {
     CASUAL: 'casual',
 };
 
+// --- Player Identity ---
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
+function getPlayerUID() {
+    let uid = localStorage.getItem('flappySuanUID');
+    if (!uid) {
+        uid = generateUUID();
+        localStorage.setItem('flappySuanUID', uid);
+    }
+    return uid;
+}
+
+function getPlayerName() {
+    return localStorage.getItem('flappySuanName') || null;
+}
+
+function setPlayerName(name) {
+    localStorage.setItem('flappySuanName', name.trim());
+}
+
 // --- Note Frequencies ---
 const NOTE_FREQ = {
     'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23,
@@ -486,6 +512,10 @@ const game = {
     paused: false,
     confetti: [],
     safeArea: { top: 0, bottom: 0, left: 0, right: 0 },
+    // Leaderboard (casual mode)
+    leaderboardData: null,
+    leaderboardLoading: false,
+    leaderboardError: false,
     // UI button refs
     playBtn: null,
     hbdBtn: null,
@@ -823,16 +853,31 @@ function drawGameOver(ctx) {
     const { scaleX, scaleY } = getScale();
     const w = gameDisplayW;
     const h = gameDisplayH;
+    const s = Math.min(scaleX, scaleY);
 
     // Overlay
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, w, h);
 
-    // Panel
-    const panelW = 280 * scaleX;
-    const panelH = 210 * scaleY;
+    const isCasual = game.mode === GameMode.CASUAL;
+    const modeKey = isCasual ? 'casual' : 'hbd';
+    const playerUID = getPlayerUID();
+
+    // Panel sizing — casual expands to fit leaderboard
+    const panelW = (isCasual ? 300 : 280) * scaleX;
+    let panelH;
+    if (!isCasual) {
+        panelH = 210 * scaleY;
+    } else if (game.leaderboardLoading || game.leaderboardError || !game.leaderboardData) {
+        panelH = 310 * scaleY;
+    } else {
+        const lbData = game.leaderboardData;
+        const playerInTop5 = lbData.top5.some(r => r.playerId === playerUID);
+        panelH = (!playerInTop5 && lbData.personalBest !== null) ? 430 * scaleY : 415 * scaleY;
+    }
+
     const panelX = (w - panelW) / 2;
-    const panelY = (h - panelH) / 2 - 20 * scaleY;
+    const panelY = Math.max(10 * scaleY, (h - panelH) / 2 - 20 * scaleY);
 
     ctx.fillStyle = '#FCE4EC';
     roundRect(ctx, panelX, panelY, panelW, panelH, 16, true, false);
@@ -840,9 +885,7 @@ function drawGameOver(ctx) {
     ctx.lineWidth = 3;
     roundRect(ctx, panelX, panelY, panelW, panelH, 16, false, true);
 
-    const s = Math.min(scaleX, scaleY);
-
-    // Game Over text
+    // Title
     ctx.font = `bold ${34 * s}px Arial, sans-serif`;
     ctx.fillStyle = '#C2185B';
     ctx.textAlign = 'center';
@@ -852,32 +895,141 @@ function drawGameOver(ctx) {
     // Score
     ctx.font = `bold ${24 * s}px Arial, sans-serif`;
     ctx.fillStyle = '#AD1457';
-    ctx.fillText(`Score: ${game.score}`, w / 2, panelY + 82 * scaleY);
+    ctx.fillText(`Score: ${game.score}`, w / 2, panelY + 78 * scaleY);
 
-    // High score
-    const modeKey = game.mode === GameMode.HBD ? 'hbd' : 'casual';
-    ctx.font = `${20 * s}px Arial, sans-serif`;
+    // Best score
+    ctx.font = `${18 * s}px Arial, sans-serif`;
     ctx.fillStyle = '#EC407A';
-    ctx.fillText(`Best: ${game.highScores[modeKey]}`, w / 2, panelY + 110 * scaleY);
+    ctx.fillText(`Best: ${game.highScores[modeKey]}`, w / 2, panelY + 102 * scaleY);
 
-    // New high score
+    // New best badge
     if (game.isNewHighScore) {
-        ctx.font = `bold ${14 * s}px Arial, sans-serif`;
+        ctx.font = `bold ${13 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#C2185B';
-        ctx.fillText('NEW BEST!', w / 2, panelY + 130 * scaleY);
+        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + 122 * scaleY);
+    }
+
+    let buttonsY;
+    game.changeNameBtn = null;
+
+    if (isCasual) {
+        // Divider
+        const divY = panelY + 138 * scaleY;
+        ctx.strokeStyle = '#F48FB1';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(panelX + 16 * scaleX, divY);
+        ctx.lineTo(panelX + panelW - 16 * scaleX, divY);
+        ctx.stroke();
+
+        // Leaderboard header
+        ctx.font = `bold ${16 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#C2185B';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏆 Leaderboard', w / 2, panelY + 157 * scaleY);
+
+        let curY = panelY + 178 * scaleY;
+
+        if (game.leaderboardLoading) {
+            ctx.font = `${14 * s}px Arial, sans-serif`;
+            ctx.fillStyle = '#AD1457';
+            ctx.fillText('Loading...', w / 2, curY);
+            curY += 22 * scaleY;
+        } else if (game.leaderboardError) {
+            ctx.font = `${13 * s}px Arial, sans-serif`;
+            ctx.fillStyle = '#AD1457';
+            ctx.fillText('Could not load leaderboard', w / 2, curY);
+            curY += 22 * scaleY;
+        } else if (game.leaderboardData) {
+            const lbData = game.leaderboardData;
+            const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+            let playerInTop5 = false;
+
+            for (let i = 0; i < lbData.top5.length; i++) {
+                const row = lbData.top5[i];
+                const isMe = row.playerId === playerUID;
+                if (isMe) playerInTop5 = true;
+
+                if (isMe) {
+                    ctx.fillStyle = 'rgba(236,64,122,0.12)';
+                    roundRect(ctx, panelX + 8 * scaleX, curY - 9 * scaleY,
+                        panelW - 16 * scaleX, 20 * scaleY, 6, true, false);
+                }
+
+                ctx.font = `${isMe ? 'bold ' : ''}${13 * s}px Arial, sans-serif`;
+                ctx.fillStyle = isMe ? '#AD1457' : '#555';
+                ctx.textAlign = 'left';
+                ctx.fillText(`${medals[i]} ${row.playerName}`, panelX + 20 * scaleX, curY);
+                ctx.textAlign = 'right';
+                ctx.fillText(String(row.score), panelX + panelW - 20 * scaleX, curY);
+                ctx.textAlign = 'center';
+                curY += 22 * scaleY;
+            }
+
+            if (lbData.top5.length === 0) {
+                ctx.font = `${13 * s}px Arial, sans-serif`;
+                ctx.fillStyle = '#AD1457';
+                ctx.fillText('No scores yet — be the first!', w / 2, curY);
+                curY += 22 * scaleY;
+            }
+
+            // Personal best row if player is not in top 5
+            if (!playerInTop5 && lbData.personalBest !== null) {
+                ctx.strokeStyle = '#F48FB1';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 3]);
+                ctx.beginPath();
+                ctx.moveTo(panelX + 16 * scaleX, curY + 2 * scaleY);
+                ctx.lineTo(panelX + panelW - 16 * scaleX, curY + 2 * scaleY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                curY += 14 * scaleY;
+
+                ctx.font = `bold ${13 * s}px Arial, sans-serif`;
+                ctx.fillStyle = '#AD1457';
+                ctx.textAlign = 'left';
+                ctx.fillText('  You', panelX + 20 * scaleX, curY);
+                ctx.textAlign = 'right';
+                ctx.fillText(String(lbData.personalBest), panelX + panelW - 20 * scaleX, curY);
+                ctx.textAlign = 'center';
+                curY += 22 * scaleY;
+            }
+        }
+
+        // "Playing as" / change name tap area
+        const playerName = getPlayerName();
+        if (playerName) {
+            ctx.font = `${11 * s}px Arial, sans-serif`;
+            ctx.fillStyle = '#F06292';
+            ctx.textAlign = 'center';
+            const changeText = `✏ Playing as: ${playerName}`;
+            ctx.fillText(changeText, w / 2, curY + 4 * scaleY);
+            const tw = ctx.measureText(changeText).width;
+            game.changeNameBtn = {
+                x: w / 2 - tw / 2 - 4,
+                y: curY - 7 * scaleY,
+                w: tw + 8,
+                h: 20 * scaleY,
+            };
+            curY += 22 * scaleY;
+        }
+
+        buttonsY = curY + 8 * scaleY;
+    } else {
+        // HBD mode: fixed button position
+        buttonsY = panelY + panelH - 62 * scaleY;
     }
 
     // Buttons
-    const retryW = 115 * scaleX;
+    const retryW = (isCasual ? 125 : 115) * scaleX;
     const retryH = 48 * scaleY;
     const retryX = panelX + 18 * scaleX;
-    const retryY = panelY + panelH - 62 * scaleY;
-    drawButton(ctx, 'RETRY', retryX, retryY, retryW, retryH, '#EC407A', '#C2185B');
-    game.retryBtn = { x: retryX, y: retryY, w: retryW, h: retryH };
+    drawButton(ctx, 'RETRY', retryX, buttonsY, retryW, retryH, '#EC407A', '#C2185B');
+    game.retryBtn = { x: retryX, y: buttonsY, w: retryW, h: retryH };
 
     const menuX = panelX + panelW - retryW - 18 * scaleX;
-    drawButton(ctx, 'MENU', menuX, retryY, retryW, retryH, '#F48FB1', '#EC407A');
-    game.menuBtn = { x: menuX, y: retryY, w: retryW, h: retryH };
+    drawButton(ctx, 'MENU', menuX, buttonsY, retryW, retryH, '#F48FB1', '#EC407A');
+    game.menuBtn = { x: menuX, y: buttonsY, w: retryW, h: retryH };
 }
 
 function drawLevelComplete(ctx) {
@@ -1168,6 +1320,9 @@ function startGame(mode) {
     game.groundOffset = 0;
     game.paused = false;
     game.confetti = [];
+    game.leaderboardData = null;
+    game.leaderboardLoading = false;
+    game.leaderboardError = false;
 
     if (mode === GameMode.HBD) {
         birthdayAudio.init(); // init AudioContext but don't play melody yet
@@ -1270,6 +1425,12 @@ function update() {
             game.bird.y = GROUND.y - BIRD_CONFIG.radius;
             game.state = GameState.GAME_OVER;
             saveHighScore();
+            if (game.mode === GameMode.CASUAL) {
+                game.leaderboardData = null;
+                game.leaderboardLoading = false;
+                game.leaderboardError = false;
+                submitAndFetchLeaderboard();
+            }
         }
         return;
     }
@@ -1416,7 +1577,11 @@ function handleTap(clientX, clientY) {
             if (hitTest(x, y, game.hbdBtn)) {
                 startGame(GameMode.HBD);
             } else if (hitTest(x, y, game.casualBtn)) {
-                startGame(GameMode.CASUAL);
+                if (!getPlayerName()) {
+                    showNameOverlay(() => startGame(GameMode.CASUAL));
+                } else {
+                    startGame(GameMode.CASUAL);
+                }
             } else if (hitTest(x, y, game.backBtn)) {
                 game.state = GameState.MENU;
             }
@@ -1444,6 +1609,13 @@ function handleTap(clientX, clientY) {
                 startGame(game.mode);
             } else if (hitTest(x, y, game.menuBtn)) {
                 game.state = GameState.MENU;
+            } else if (game.changeNameBtn && hitTest(x, y, game.changeNameBtn)) {
+                showNameOverlay(() => {
+                    // re-submit with new name for this score if still in game over
+                    if (game.state === GameState.GAME_OVER && game.mode === GameMode.CASUAL) {
+                        submitAndFetchLeaderboard();
+                    }
+                });
             }
             break;
     }
@@ -1565,6 +1737,35 @@ function saveHighScore() {
     }
 }
 
+// --- Leaderboard API ---
+async function submitAndFetchLeaderboard() {
+    const name = getPlayerName();
+    const uid = getPlayerUID();
+    if (!name) return;
+
+    game.leaderboardLoading = true;
+    game.leaderboardError = false;
+    game.leaderboardData = null;
+
+    try {
+        await fetch('/api/submit-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName: name, playerUID: uid, score: game.score }),
+        });
+
+        const res = await fetch('/api/leaderboard?uid=' + encodeURIComponent(uid));
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        game.leaderboardData = data;
+    } catch (e) {
+        console.error('Leaderboard error:', e);
+        game.leaderboardError = true;
+    } finally {
+        game.leaderboardLoading = false;
+    }
+}
+
 // --- Visibility ---
 document.addEventListener('visibilitychange', () => {
     if (document.hidden && game.state === GameState.PLAYING) {
@@ -1606,6 +1807,52 @@ canvas.addEventListener('touchstart', function resumeHandler(e) {
         accumulator = 0;
     }
 }, { passive: true });
+
+// --- Name Overlay ---
+(function setupNameOverlay() {
+    const overlay = document.getElementById('name-overlay');
+    const input = document.getElementById('name-input');
+    const confirmBtn = document.getElementById('name-confirm');
+    if (!overlay || !input || !confirmBtn) return;
+
+    let _onConfirm = null;
+
+    function validateAndConfirm() {
+        const name = input.value.trim();
+        if (name.length < 1 || name.length > 30) {
+            input.style.borderColor = '#e53935';
+            input.focus();
+            return;
+        }
+        // Allow letters, numbers, spaces, and basic punctuation
+        if (!/^[a-zA-Z0-9 '_\-\.]+$/.test(name)) {
+            input.style.borderColor = '#e53935';
+            input.focus();
+            return;
+        }
+        input.style.borderColor = '';
+        setPlayerName(name);
+        getPlayerUID(); // ensure UID is created
+        overlay.classList.remove('visible');
+        if (_onConfirm) _onConfirm(name);
+        _onConfirm = null;
+    }
+
+    confirmBtn.addEventListener('click', validateAndConfirm);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') validateAndConfirm();
+        input.style.borderColor = ''; // clear error on typing
+    });
+
+    window.showNameOverlay = function showNameOverlay(onConfirm) {
+        _onConfirm = onConfirm;
+        input.value = getPlayerName() || '';
+        input.style.borderColor = '';
+        overlay.classList.add('visible');
+        // Slight delay for mobile keyboard
+        setTimeout(() => input.focus(), 80);
+    };
+})();
 
 // --- Initialization ---
 function init() {

@@ -46,12 +46,97 @@
         canvas {
             display: block;
         }
+
+        /* ---- Name Entry Overlay ---- */
+        #name-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        #name-overlay.visible {
+            display: flex;
+        }
+        #name-modal {
+            background: #FCE4EC;
+            border: 3px solid #EC407A;
+            border-radius: 18px;
+            padding: 28px 28px 22px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            width: min(300px, 86vw);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        }
+        #name-modal h2 {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            font-size: 22px;
+            color: #C2185B;
+            text-align: center;
+        }
+        #name-modal p {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            color: #AD1457;
+            text-align: center;
+        }
+        #name-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #EC407A;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            color: #333;
+            background: #fff;
+            outline: none;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        #name-input:focus {
+            border-color: #C2185B;
+            box-shadow: 0 0 0 3px rgba(236,64,122,0.2);
+        }
+        #name-confirm {
+            width: 100%;
+            padding: 12px;
+            background: #EC407A;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 17px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+        }
+        #name-confirm:active {
+            background: #C2185B;
+        }
     </style>
 </head>
 <body>
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
     </div>
+
+    <!-- Name entry overlay (shown before first casual game) -->
+    <div id="name-overlay">
+        <div id="name-modal">
+            <h2>What's your name?</h2>
+            <p>Your score will be saved to the leaderboard</p>
+            <input id="name-input" type="text" maxlength="30" placeholder="Enter your name..."
+                   autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
+            <button id="name-confirm">Let's Play!</button>
+        </div>
+    </div>
+
     <script src="game.js"></script>
 </body>
 </html>
