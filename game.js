@@ -869,11 +869,11 @@ function drawGameOver(ctx) {
     if (!isCasual) {
         panelH = 210 * scaleY;
     } else if (game.leaderboardLoading || game.leaderboardError || !game.leaderboardData) {
-        panelH = 310 * scaleY;
+        panelH = 294 * scaleY;
     } else {
         const lbData = game.leaderboardData;
         const playerInTop5 = lbData.top5.some(r => r.playerId === playerUID);
-        panelH = (!playerInTop5 && lbData.personalBest !== null) ? 430 * scaleY : 415 * scaleY;
+        panelH = (!playerInTop5 && lbData.personalBest !== null) ? 420 * scaleY : 384 * scaleY;
     }
 
     const panelX = (w - panelW) / 2;
@@ -898,9 +898,9 @@ function drawGameOver(ctx) {
     ctx.fillText(`Score: ${game.score}`, w / 2, panelY + 78 * scaleY);
 
     // Best score
-    ctx.font = `${18 * s}px Arial, sans-serif`;
+    ctx.font = `${14 * s}px Arial, sans-serif`;
     ctx.fillStyle = '#EC407A';
-    ctx.fillText(`Best: ${game.highScores[modeKey]}`, w / 2, panelY + 102 * scaleY);
+    ctx.fillText(`Best: ${game.highScores[modeKey]}`, w / 2, panelY + 100 * scaleY);
 
     // New best badge
     if (game.isNewHighScore) {
@@ -913,25 +913,39 @@ function drawGameOver(ctx) {
     game.changeNameBtn = null;
 
     if (isCasual) {
-        // Divider
-        const divY = panelY + 138 * scaleY;
-        ctx.strokeStyle = '#F48FB1';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(panelX + 16 * scaleX, divY);
-        ctx.lineTo(panelX + panelW - 16 * scaleX, divY);
-        ctx.stroke();
+        // Leaderboard container bounds
+        const lbX = panelX + 10 * scaleX;
+        const lbY = panelY + 118 * scaleY;
+        const lbW = panelW - 20 * scaleX;
 
-        // Leaderboard header
-        ctx.font = `bold ${16 * s}px Arial, sans-serif`;
+        // Pre-compute container height for drawing border first
+        let lbH;
+        if (game.leaderboardLoading || game.leaderboardError || !game.leaderboardData) {
+            lbH = 58 * scaleY;
+        } else {
+            const lbData = game.leaderboardData;
+            const playerInTop5c = lbData.top5.some(r => r.playerId === playerUID);
+            const rowCount = Math.max(lbData.top5.length, 1);
+            lbH = (28 + rowCount * 22 + (!playerInTop5c && lbData.personalBest !== null ? 36 : 0) + 10) * scaleY;
+        }
+
+        // Draw leaderboard container
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        roundRect(ctx, lbX, lbY, lbW, lbH, 8, true, false);
+        ctx.strokeStyle = '#F48FB1';
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, lbX, lbY, lbW, lbH, 8, false, true);
+
+        // Leaderboard header (no icon)
+        ctx.font = `bold ${14 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#C2185B';
         ctx.textAlign = 'center';
-        ctx.fillText('🏆 Leaderboard', w / 2, panelY + 157 * scaleY);
+        ctx.fillText('Leaderboard', w / 2, lbY + 13 * scaleY);
 
-        let curY = panelY + 178 * scaleY;
+        let curY = lbY + 26 * scaleY;
 
         if (game.leaderboardLoading) {
-            ctx.font = `${14 * s}px Arial, sans-serif`;
+            ctx.font = `${13 * s}px Arial, sans-serif`;
             ctx.fillStyle = '#AD1457';
             ctx.fillText('Loading...', w / 2, curY);
             curY += 22 * scaleY;
@@ -942,7 +956,7 @@ function drawGameOver(ctx) {
             curY += 22 * scaleY;
         } else if (game.leaderboardData) {
             const lbData = game.leaderboardData;
-            const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
+            const positions = ['1.', '2.', '3.', '4.', '5.'];
             let playerInTop5 = false;
 
             for (let i = 0; i < lbData.top5.length; i++) {
@@ -950,18 +964,20 @@ function drawGameOver(ctx) {
                 const isMe = row.playerId === playerUID;
                 if (isMe) playerInTop5 = true;
 
+                const isTop3 = i < 3;
+
                 if (isMe) {
                     ctx.fillStyle = 'rgba(236,64,122,0.12)';
-                    roundRect(ctx, panelX + 8 * scaleX, curY - 9 * scaleY,
-                        panelW - 16 * scaleX, 20 * scaleY, 6, true, false);
+                    roundRect(ctx, lbX + 4 * scaleX, curY - 9 * scaleY,
+                        lbW - 8 * scaleX, 20 * scaleY, 6, true, false);
                 }
 
-                ctx.font = `${isMe ? 'bold ' : ''}${13 * s}px Arial, sans-serif`;
+                ctx.font = `${(isMe || isTop3) ? 'bold ' : ''}${13 * s}px Arial, sans-serif`;
                 ctx.fillStyle = isMe ? '#AD1457' : '#555';
                 ctx.textAlign = 'left';
-                ctx.fillText(`${medals[i]} ${row.playerName}`, panelX + 20 * scaleX, curY);
+                ctx.fillText(`${positions[i]} ${row.playerName}`, lbX + 10 * scaleX, curY);
                 ctx.textAlign = 'right';
-                ctx.fillText(String(row.score), panelX + panelW - 20 * scaleX, curY);
+                ctx.fillText(String(row.score), lbX + lbW - 10 * scaleX, curY);
                 ctx.textAlign = 'center';
                 curY += 22 * scaleY;
             }
@@ -979,8 +995,8 @@ function drawGameOver(ctx) {
                 ctx.lineWidth = 1;
                 ctx.setLineDash([4, 3]);
                 ctx.beginPath();
-                ctx.moveTo(panelX + 16 * scaleX, curY + 2 * scaleY);
-                ctx.lineTo(panelX + panelW - 16 * scaleX, curY + 2 * scaleY);
+                ctx.moveTo(lbX + 6 * scaleX, curY + 2 * scaleY);
+                ctx.lineTo(lbX + lbW - 6 * scaleX, curY + 2 * scaleY);
                 ctx.stroke();
                 ctx.setLineDash([]);
                 curY += 14 * scaleY;
@@ -988,21 +1004,22 @@ function drawGameOver(ctx) {
                 ctx.font = `bold ${13 * s}px Arial, sans-serif`;
                 ctx.fillStyle = '#AD1457';
                 ctx.textAlign = 'left';
-                ctx.fillText('  You', panelX + 20 * scaleX, curY);
+                ctx.fillText('  You', lbX + 10 * scaleX, curY);
                 ctx.textAlign = 'right';
-                ctx.fillText(String(lbData.personalBest), panelX + panelW - 20 * scaleX, curY);
+                ctx.fillText(String(lbData.personalBest), lbX + lbW - 10 * scaleX, curY);
                 ctx.textAlign = 'center';
                 curY += 22 * scaleY;
             }
         }
 
-        // "Playing as" / change name tap area
+        // "Playing as" / change name tap area (below container)
         const playerName = getPlayerName();
+        curY = lbY + lbH + 10 * scaleY;
         if (playerName) {
             ctx.font = `${11 * s}px Arial, sans-serif`;
             ctx.fillStyle = '#F06292';
             ctx.textAlign = 'center';
-            const changeText = `✏ Playing as: ${playerName}`;
+            const changeText = `✎ Playing as ${playerName}`;
             ctx.fillText(changeText, w / 2, curY + 4 * scaleY);
             const tw = ctx.measureText(changeText).width;
             game.changeNameBtn = {
@@ -1014,7 +1031,7 @@ function drawGameOver(ctx) {
             curY += 22 * scaleY;
         }
 
-        buttonsY = curY + 8 * scaleY;
+        buttonsY = curY + 6 * scaleY;
     } else {
         // HBD mode: fixed button position
         buttonsY = panelY + panelH - 62 * scaleY;
@@ -1754,7 +1771,7 @@ async function submitAndFetchLeaderboard() {
             body: JSON.stringify({ playerName: name, playerUID: uid, score: game.score }),
         });
 
-        const res = await fetch('/api/leaderboard?uid=' + encodeURIComponent(uid));
+        const res = await fetch('/api/leaderboard?uid=' + encodeURIComponent(uid) + '&t=' + Date.now());
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
         game.leaderboardData = data;
