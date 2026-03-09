@@ -22,22 +22,11 @@ module.exports = async function handler(req, res) {
     const uid = typeof req.query.uid === 'string' ? req.query.uid : null;
 
     try {
-        // Top 5 unique players by best score (using latest name per player)
+        // Top 5 scores (multiple entries per player allowed)
         const { rows: top5 } = await sql`
-            WITH player_bests AS (
-                SELECT player_id, MAX(score) AS best_score
-                FROM leaderboard
-                GROUP BY player_id
-            ),
-            player_latest_name AS (
-                SELECT DISTINCT ON (player_id) player_id, player_name
-                FROM leaderboard
-                ORDER BY player_id, created_at DESC
-            )
-            SELECT pln.player_name, pb.best_score AS score, pb.player_id
-            FROM player_bests pb
-            JOIN player_latest_name pln ON pb.player_id = pln.player_id
-            ORDER BY pb.best_score DESC
+            SELECT player_name, score, player_id
+            FROM leaderboard
+            ORDER BY score DESC
             LIMIT 5
         `;
 
