@@ -906,7 +906,7 @@ function drawGameOver(ctx) {
     if (game.isNewHighScore) {
         ctx.font = `bold ${13 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#C2185B';
-        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + 122 * scaleY);
+        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + 112 * scaleY);
     }
 
     let buttonsY;
@@ -915,7 +915,7 @@ function drawGameOver(ctx) {
     if (isCasual) {
         // Leaderboard container bounds
         const lbX = panelX + 10 * scaleX;
-        const lbY = panelY + 118 * scaleY;
+        const lbY = panelY + 122 * scaleY;
         const lbW = panelW - 20 * scaleX;
 
         // Pre-compute container height for drawing border first
@@ -926,7 +926,7 @@ function drawGameOver(ctx) {
             const lbData = game.leaderboardData;
             const playerInTop5c = lbData.top5.some(r => r.playerId === playerUID);
             const rowCount = Math.max(lbData.top5.length, 1);
-            lbH = (28 + rowCount * 22 + (!playerInTop5c && lbData.personalBest !== null ? 36 : 0) + 10) * scaleY;
+            lbH = (30 + rowCount * 22 + (!playerInTop5c && lbData.personalBest !== null ? 36 : 0) + 2) * scaleY;
         }
 
         // Draw leaderboard container
@@ -942,7 +942,7 @@ function drawGameOver(ctx) {
         ctx.textAlign = 'center';
         ctx.fillText('Leaderboard', w / 2, lbY + 13 * scaleY);
 
-        let curY = lbY + 26 * scaleY;
+        let curY = lbY + 30 * scaleY;
 
         if (game.leaderboardLoading) {
             ctx.font = `${13 * s}px Arial, sans-serif`;
