@@ -865,15 +865,22 @@ function drawGameOver(ctx) {
 
     // Panel sizing — casual expands to fit leaderboard
     const panelW = (isCasual ? 300 : 280) * scaleX;
+
+    // Leaderboard container offset from panel top (extra room if new best badge shown)
+    const lbOffsetY = game.isNewHighScore ? 128 : 122;
+    // Leaderboard container height in unscaled units
+    let lbH_units = 49; // default: loading / error state
+    if (isCasual && game.leaderboardData) {
+        const _lbd = game.leaderboardData;
+        const _inTop5 = _lbd.top5.some(r => r.playerId === playerUID);
+        const _rows = Math.max(_lbd.top5.length, 1);
+        lbH_units = _rows * 22 + 27 + (!_inTop5 && _lbd.personalBest !== null ? 36 : 0);
+    }
     let panelH;
     if (!isCasual) {
         panelH = 210 * scaleY;
-    } else if (game.leaderboardLoading || game.leaderboardError || !game.leaderboardData) {
-        panelH = 294 * scaleY;
     } else {
-        const lbData = game.leaderboardData;
-        const playerInTop5 = lbData.top5.some(r => r.playerId === playerUID);
-        panelH = (!playerInTop5 && lbData.personalBest !== null) ? 420 * scaleY : 384 * scaleY;
+        panelH = (lbOffsetY + lbH_units + 100) * scaleY;
     }
 
     const panelX = (w - panelW) / 2;
@@ -906,7 +913,7 @@ function drawGameOver(ctx) {
     if (game.isNewHighScore) {
         ctx.font = `bold ${13 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#C2185B';
-        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + 122 * scaleY);
+        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + 113 * scaleY);
     }
 
     let buttonsY;
@@ -915,19 +922,9 @@ function drawGameOver(ctx) {
     if (isCasual) {
         // Leaderboard container bounds
         const lbX = panelX + 10 * scaleX;
-        const lbY = panelY + 118 * scaleY;
+        const lbY = panelY + lbOffsetY * scaleY;
         const lbW = panelW - 20 * scaleX;
-
-        // Pre-compute container height for drawing border first
-        let lbH;
-        if (game.leaderboardLoading || game.leaderboardError || !game.leaderboardData) {
-            lbH = 58 * scaleY;
-        } else {
-            const lbData = game.leaderboardData;
-            const playerInTop5c = lbData.top5.some(r => r.playerId === playerUID);
-            const rowCount = Math.max(lbData.top5.length, 1);
-            lbH = (28 + rowCount * 22 + (!playerInTop5c && lbData.personalBest !== null ? 36 : 0) + 10) * scaleY;
-        }
+        const lbH = lbH_units * scaleY;
 
         // Draw leaderboard container
         ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
@@ -942,7 +939,7 @@ function drawGameOver(ctx) {
         ctx.textAlign = 'center';
         ctx.fillText('Leaderboard', w / 2, lbY + 13 * scaleY);
 
-        let curY = lbY + 26 * scaleY;
+        let curY = lbY + 34 * scaleY;
 
         if (game.leaderboardLoading) {
             ctx.font = `${13 * s}px Arial, sans-serif`;
