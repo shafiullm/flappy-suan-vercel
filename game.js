@@ -910,11 +910,14 @@ function drawGameOver(ctx) {
     ctx.fillStyle = '#EC407A';
     ctx.fillText(`Best: ${game.highScores[modeKey]}`, w / 2, panelY + 100 * scaleY);
 
-    // New best badge
+    // New best badge — centered between "Best:" label and next element
+    // Casual: Best at 100, leaderboard border at 136 → midpoint 118
+    // HBD:    Best at 100, buttons top at 148       → midpoint 124
     if (game.isNewHighScore) {
         ctx.font = `bold ${13 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#C2185B';
-        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + 112 * scaleY);
+        const newBestY = isCasual ? 118 : 124;
+        ctx.fillText('★ NEW BEST! ★', w / 2, panelY + newBestY * scaleY);
     }
 
     let buttonsY;
