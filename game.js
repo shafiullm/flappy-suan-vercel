@@ -80,7 +80,7 @@ const NOTE_FREQ = {
     'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23,
     'G4': 392.00, 'A4': 440.00, 'Bb4': 466.16, 'B4': 493.88,
     'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46,
-    'G5': 783.99, 'A5': 880.00, 'Bb5': 932.33, 'C6': 1046.50,
+    'G5': 783.99, 'A5': 880.00, 'Bb5': 932.33, 'B5': 987.77, 'C6': 1046.50,
 };
 
 // Happy Birthday melody in F major (starting on C5): [note, durationInBeats]
@@ -93,6 +93,48 @@ const HAPPY_BIRTHDAY_MELODY = [
 
 // HBD mode: one pipe per melody note
 const HBD_TOTAL_PIPES = HAPPY_BIRTHDAY_MELODY.length; // 25
+
+// --- 8-bit Menu Music Melodies --- [note, durationInBeats]
+const MENU_THEME = [
+    // Phrase 1: C major arpeggio up then walk down
+    ['C5',0.5],['E5',0.5],['G5',0.5],['C6',0.5],
+    ['G5',0.5],['E5',0.5],['D5',0.5],['C5',0.5],
+    // Phrase 2: higher melodic run
+    ['E5',0.5],['G5',0.5],['A5',0.5],['C6',0.5],
+    ['A5',0.5],['G5',0.5],['E5',0.5],['R',0.5],
+    // Phrase 3: F major feel
+    ['F5',0.5],['A5',0.5],['C6',0.5],['A5',0.5],
+    ['G5',0.5],['F5',0.5],['E5',0.5],['D5',0.5],
+    // Resolution
+    ['C5',0.5],['E5',0.5],['G5',1],
+    ['C5',1.5],['R',0.5],
+];
+
+const CASUAL_THEME = [
+    // Bouncy, light feel
+    ['G5',0.5],['A5',0.25],['G5',0.25],['E5',0.5],['C5',0.5],
+    ['D5',0.5],['E5',0.25],['D5',0.25],['C5',0.75],['R',0.25],
+    ['E5',0.5],['G5',0.5],['A5',0.5],['G5',0.5],
+    ['C6',1],['G5',0.5],['E5',0.5],
+    ['A5',0.5],['G5',0.5],['F5',0.25],['E5',0.25],['D5',0.5],
+    ['C5',1.5],['R',0.5],
+];
+
+const HBD_THEME = [
+    // Twinkle Twinkle fanfare — distinct from Happy Birthday melody
+    ['C5',0.5],['C5',0.5],['G5',0.5],['G5',0.5],
+    ['A5',0.5],['A5',0.5],['G5',1],
+    ['F5',0.5],['F5',0.5],['E5',0.5],['E5',0.5],
+    ['D5',0.5],['D5',0.5],['C5',1],
+    ['G5',0.5],['G5',0.5],['F5',0.5],['F5',0.5],
+    ['E5',0.5],['E5',0.5],['D5',1],
+    ['G5',0.5],['G5',0.5],['F5',0.5],['F5',0.5],
+    ['E5',0.5],['E5',0.5],['D5',1],
+    ['C5',0.5],['C5',0.5],['G5',0.5],['G5',0.5],
+    ['A5',0.5],['A5',0.5],['G5',1],
+    ['F5',0.5],['F5',0.5],['E5',0.5],['E5',0.5],
+    ['D5',0.5],['D5',0.5],['C5',1.5],['R',0.5],
+];
 
 // --- Birthday Audio ---
 class BirthdayAudio {
@@ -534,6 +576,88 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const gameContainer = document.getElementById('game-container');
 const birthdayAudio = new BirthdayAudio();
+
+// --- Menu Music Player ---
+// Plays faded 8-bit background music on menu/game-over screens.
+// Reuses birthdayAudio's AudioContext to avoid creating multiple contexts.
+class MenuMusicPlayer {
+    constructor() {
+        this.audioCtx = null;
+        this.masterGain = null;
+        this.isPlaying = false;
+        this.currentMelody = null;
+        this.noteIndex = 0;
+        this.nextNoteTime = 0;
+        this.schedulerTimer = null;
+        this.tempo = 140;
+    }
+
+    init() {
+        if (birthdayAudio.audioCtx && !this.audioCtx) {
+            this.audioCtx = birthdayAudio.audioCtx;
+            this.masterGain = this.audioCtx.createGain();
+            this.masterGain.gain.value = 0.25; // 25% volume — faded
+            this.masterGain.connect(this.audioCtx.destination);
+        }
+        return !!this.audioCtx;
+    }
+
+    _scheduleNote(freq, startTime, duration) {
+        const osc = this.audioCtx.createOscillator();
+        const noteGain = this.audioCtx.createGain();
+        osc.type = 'square'; // 8-bit character
+        osc.frequency.value = freq;
+        noteGain.gain.setValueAtTime(0.3, startTime);
+        noteGain.gain.setValueAtTime(0.3, startTime + duration * 0.75);
+        noteGain.gain.linearRampToValueAtTime(0, startTime + duration);
+        osc.connect(noteGain);
+        noteGain.connect(this.masterGain);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.01);
+    }
+
+    _scheduler() {
+        if (!this.isPlaying || !this.audioCtx || !this.currentMelody) return;
+        const scheduleAhead = 0.2;
+        while (this.nextNoteTime < this.audioCtx.currentTime + scheduleAhead) {
+            const [note, beats] = this.currentMelody[this.noteIndex];
+            const beatDur = 60 / this.tempo;
+            const dur = beats * beatDur;
+            if (note !== 'R') {
+                const freq = NOTE_FREQ[note];
+                if (freq) this._scheduleNote(freq, this.nextNoteTime, dur * 0.82);
+            }
+            this.nextNoteTime += dur;
+            this.noteIndex = (this.noteIndex + 1) % this.currentMelody.length;
+        }
+        this.schedulerTimer = setTimeout(() => this._scheduler(), 100);
+    }
+
+    play(melody, tempo) {
+        if (!this.init()) return;
+        this.stop();
+        this.currentMelody = melody;
+        this.tempo = tempo;
+        this.noteIndex = 0;
+        this.nextNoteTime = this.audioCtx.currentTime + 0.05;
+        this.isPlaying = true;
+        this._scheduler();
+    }
+
+    stop() {
+        this.isPlaying = false;
+        if (this.schedulerTimer) {
+            clearTimeout(this.schedulerTimer);
+            this.schedulerTimer = null;
+        }
+    }
+
+    playMenuTheme()   { this.play(MENU_THEME,   140); }
+    playCasualTheme() { this.play(CASUAL_THEME, 130); }
+    playHBDTheme()    { this.play(HBD_THEME,    150); }
+}
+
+const menuMusic = new MenuMusicPlayer();
 
 // Cached display dimensions (updated in resizeCanvas)
 let gameDisplayW = GAME_WIDTH;
@@ -1457,10 +1581,13 @@ function update() {
             game.state = GameState.GAME_OVER;
             saveHighScore();
             if (game.mode === GameMode.CASUAL) {
+                menuMusic.playCasualTheme();
                 game.leaderboardData = null;
                 game.leaderboardLoading = false;
                 game.leaderboardError = false;
                 submitAndFetchLeaderboard();
+            } else {
+                menuMusic.playHBDTheme();
             }
         }
         return;
@@ -1593,6 +1720,8 @@ function handleTap(clientX, clientY) {
     if (!game.audioInitialized) {
         game.audioInitialized = true;
         birthdayAudio.init();
+        menuMusic.init();
+        menuMusic.playMenuTheme();
     }
 
     const x = clientX;
@@ -1607,8 +1736,10 @@ function handleTap(clientX, clientY) {
 
         case GameState.LEVEL_SELECT:
             if (hitTest(x, y, game.hbdBtn)) {
+                menuMusic.stop();
                 startGame(GameMode.HBD);
             } else if (hitTest(x, y, game.casualBtn)) {
+                menuMusic.stop();
                 if (!getPlayerName()) {
                     showNameOverlay(() => startGame(GameMode.CASUAL));
                 } else {
@@ -1638,9 +1769,11 @@ function handleTap(clientX, clientY) {
         case GameState.GAME_OVER:
         case GameState.LEVEL_COMPLETE:
             if (hitTest(x, y, game.retryBtn)) {
+                menuMusic.stop();
                 startGame(game.mode);
             } else if (hitTest(x, y, game.menuBtn)) {
                 game.state = GameState.MENU;
+                menuMusic.playMenuTheme();
             } else if (game.changeNameBtn && hitTest(x, y, game.changeNameBtn)) {
                 showNameOverlay(() => {
                     // re-submit with new name for this score if still in game over
