@@ -875,7 +875,7 @@ function drawGameOver(ctx) {
     const panelW = (isCasual ? 300 : 280) * scaleX;
     let panelH;
     if (!isCasual) {
-        panelH = 210 * scaleY;
+        panelH = (game.isNewHighScore ? 210 : 186) * scaleY;
     } else if (game.leaderboardLoading || game.leaderboardError || !game.leaderboardData) {
         panelH = 294 * scaleY;
     } else {
