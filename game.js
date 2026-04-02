@@ -470,33 +470,31 @@ class Pipe {
         const w = PIPE_CONFIG.width;
 
         if (game.mode === GameMode.ANNIVERSARY) {
-            // Anniversary-themed ribbon pipes (cream body, gold stripes, wine-red cap with heart)
-            const bodyColor = '#FFF8E1';
-            const stripeColor = '#FFD700';
-            const capColor = '#C62828';
-            const borderColor = '#8B0000';
+            // Anniversary-themed rose red pipes with white polka dots and gold caps
+            const bodyColor = '#C62828';
+            const dotColor = 'rgba(255, 255, 255, 0.25)';
+            const capColor = '#FFD700';
+            const borderColor = '#FFA000';
 
             // Top pipe body
             ctx.fillStyle = bodyColor;
             ctx.fillRect(this.x, 0, w, this.topHeight);
-            // Gold diagonal stripes
+            // White polka dots
             ctx.save();
             ctx.beginPath();
             ctx.rect(this.x, 0, w, this.topHeight - capHeight);
             ctx.clip();
-            ctx.fillStyle = stripeColor;
-            const stripeW = 12;
-            for (let sy = -w; sy < this.topHeight + w; sy += stripeW * 2) {
-                ctx.beginPath();
-                ctx.moveTo(this.x, sy);
-                ctx.lineTo(this.x + w, sy + w);
-                ctx.lineTo(this.x + w, sy + w + stripeW);
-                ctx.lineTo(this.x, sy + stripeW);
-                ctx.closePath();
-                ctx.fill();
+            ctx.fillStyle = dotColor;
+            const dotGap = 16;
+            for (let dy = dotGap; dy < this.topHeight; dy += dotGap) {
+                for (let dx = dotGap / 2; dx < w; dx += dotGap) {
+                    ctx.beginPath();
+                    ctx.arc(this.x + dx, dy, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             ctx.restore();
-            // Top pipe cap
+            // Top pipe cap (gold)
             ctx.fillStyle = capColor;
             ctx.fillRect(this.x - capOverhang, this.topHeight - capHeight, w + capOverhang * 2, capHeight);
             ctx.strokeStyle = borderColor;
@@ -506,7 +504,7 @@ class Pipe {
             const hcx = this.x + w / 2;
             const hcy = this.topHeight - capHeight / 2;
             const hs = 5;
-            ctx.fillStyle = '#FFFFFF';
+            ctx.fillStyle = '#C62828';
             ctx.beginPath();
             ctx.moveTo(hcx, hcy + hs * 0.6);
             ctx.bezierCurveTo(hcx - hs * 1.2, hcy - hs * 0.5, hcx - hs * 1.2, hcy - hs * 1.5, hcx, hcy - hs * 0.7);
@@ -516,23 +514,21 @@ class Pipe {
             // Bottom pipe body
             ctx.fillStyle = bodyColor;
             ctx.fillRect(this.x, this.bottomY, w, GROUND.y - this.bottomY);
-            // Gold diagonal stripes
+            // White polka dots
             ctx.save();
             ctx.beginPath();
             ctx.rect(this.x, this.bottomY + capHeight, w, GROUND.y - this.bottomY - capHeight);
             ctx.clip();
-            ctx.fillStyle = stripeColor;
-            for (let sy = this.bottomY - w; sy < GROUND.y + w; sy += stripeW * 2) {
-                ctx.beginPath();
-                ctx.moveTo(this.x, sy);
-                ctx.lineTo(this.x + w, sy + w);
-                ctx.lineTo(this.x + w, sy + w + stripeW);
-                ctx.lineTo(this.x, sy + stripeW);
-                ctx.closePath();
-                ctx.fill();
+            ctx.fillStyle = dotColor;
+            for (let dy = this.bottomY + capHeight + dotGap; dy < GROUND.y; dy += dotGap) {
+                for (let dx = dotGap / 2; dx < w; dx += dotGap) {
+                    ctx.beginPath();
+                    ctx.arc(this.x + dx, dy, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             ctx.restore();
-            // Bottom pipe cap
+            // Bottom pipe cap (gold)
             ctx.fillStyle = capColor;
             ctx.fillRect(this.x - capOverhang, this.bottomY, w + capOverhang * 2, capHeight);
             ctx.strokeStyle = borderColor;
@@ -541,7 +537,7 @@ class Pipe {
             // Heart on bottom cap
             const bhcx = this.x + w / 2;
             const bhcy = this.bottomY + capHeight / 2;
-            ctx.fillStyle = '#FFFFFF';
+            ctx.fillStyle = '#C62828';
             ctx.beginPath();
             ctx.moveTo(bhcx, bhcy + hs * 0.6);
             ctx.bezierCurveTo(bhcx - hs * 1.2, bhcy - hs * 0.5, bhcx - hs * 1.2, bhcy - hs * 1.5, bhcx, bhcy - hs * 0.7);
@@ -818,11 +814,17 @@ function drawBackground(ctx) {
     const w = gameDisplayW;
     const h = gameDisplayH;
 
-    // Soft pink gradient sky
+    // Sky gradient
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, '#FCE4EC');
-    grad.addColorStop(0.5, '#FCE4EC');
-    grad.addColorStop(1, '#F8BBD0');
+    if (game.mode === GameMode.ANNIVERSARY) {
+        grad.addColorStop(0, '#FFEBEE');
+        grad.addColorStop(0.5, '#FFCDD2');
+        grad.addColorStop(1, '#EF9A9A');
+    } else {
+        grad.addColorStop(0, '#FCE4EC');
+        grad.addColorStop(0.5, '#FCE4EC');
+        grad.addColorStop(1, '#F8BBD0');
+    }
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
 
@@ -842,12 +844,12 @@ function drawGroundFn(ctx) {
     const groundY = GROUND.y * scaleY;
     const groundH = GROUND.height * scaleY;
 
-    // Pink ground base
-    ctx.fillStyle = '#F8BBD0';
+    // Ground base
+    ctx.fillStyle = game.mode === GameMode.ANNIVERSARY ? '#EF9A9A' : '#F8BBD0';
     ctx.fillRect(0, groundY, w, groundH);
 
-    // Darker pink lower section
-    ctx.fillStyle = '#F48FB1';
+    // Darker lower section
+    ctx.fillStyle = game.mode === GameMode.ANNIVERSARY ? '#E57373' : '#F48FB1';
     ctx.fillRect(0, groundY + 14 * scaleY, w, groundH - 14 * scaleY);
 
     // Subtle dot pattern
@@ -866,8 +868,13 @@ function drawGroundFn(ctx) {
 
     // Clean top edge - smooth gradient strip
     const topGrad = ctx.createLinearGradient(0, groundY, 0, groundY + 14 * scaleY);
-    topGrad.addColorStop(0, '#EC407A');
-    topGrad.addColorStop(1, '#F48FB1');
+    if (game.mode === GameMode.ANNIVERSARY) {
+        topGrad.addColorStop(0, '#D32F2F');
+        topGrad.addColorStop(1, '#E57373');
+    } else {
+        topGrad.addColorStop(0, '#EC407A');
+        topGrad.addColorStop(1, '#F48FB1');
+    }
     ctx.fillStyle = topGrad;
     ctx.fillRect(0, groundY, w, 14 * scaleY);
 
@@ -1006,7 +1013,7 @@ function drawScore(ctx) {
 }
 
 function drawCake(ctx) {
-    if (!game.cakeActive) return;
+    if (!game.cakeActive || game.mode === GameMode.ANNIVERSARY) return;
     const { scaleX, scaleY } = getScale();
     const cakeScale = 5;
     const cx = game.cakeX * scaleX;
@@ -1049,40 +1056,46 @@ function drawFlower(ctx) {
     ctx.translate(cx, cy);
     ctx.scale(scaleX * flowerScale, scaleY * flowerScale);
 
-    // Stem
+    // Bouquet of 3 flowers
+    // Stems
     ctx.fillStyle = '#388E3C';
-    ctx.fillRect(-3, 0, 6, 30);
+    ctx.fillRect(-17, 8, 4, 25);   // left stem
+    ctx.fillRect(-2, 0, 4, 30);    // center stem (tallest)
+    ctx.fillRect(13, 6, 4, 26);    // right stem
 
     // Leaves
     ctx.fillStyle = '#43A047';
-    ctx.beginPath();
-    ctx.ellipse(-10, 15, 10, 5, -0.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(10, 22, 10, 5, 0.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-23, 18, 9, 4, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(7, 22, 9, 4, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(22, 20, 9, 4, 0.5, 0, Math.PI * 2); ctx.fill();
 
-    // 8 petals
-    ctx.fillStyle = '#E53935';
-    for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
+    // Helper to draw a flower head
+    const drawHead = (dx, dy, petalColor) => {
         ctx.save();
-        ctx.rotate(angle);
-        ctx.beginPath();
-        ctx.ellipse(0, -12, 5, 9, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.translate(dx, dy);
+        ctx.fillStyle = petalColor;
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            ctx.save(); ctx.rotate(angle);
+            ctx.beginPath(); ctx.ellipse(0, -12, 5, 9, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        ctx.fillStyle = '#FDD835'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#F9A825'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-    }
+    };
 
-    // Center
-    ctx.fillStyle = '#FDD835';
-    ctx.beginPath();
-    ctx.arc(0, 0, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#F9A825';
-    ctx.beginPath();
-    ctx.arc(0, 0, 4, 0, Math.PI * 2);
-    ctx.fill();
+    // Side flowers first, center on top
+    drawHead(-15, 8, '#E53935');
+    drawHead(15, 6, '#FF7043');
+    drawHead(0, 0, '#E53935');
+
+    // Ribbon bow at base
+    ctx.fillStyle = '#F48FB1';
+    ctx.beginPath(); ctx.ellipse(-9, 30, 9, 5, -0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(9, 30, 9, 5, 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#E91E63';
+    ctx.beginPath(); ctx.arc(0, 30, 4, 0, Math.PI * 2); ctx.fill();
 
     ctx.restore();
 }
@@ -1352,7 +1365,7 @@ function drawLevelComplete(ctx) {
 
     // Panel
     const panelW = 300 * scaleX;
-    const panelH = 260 * scaleY;
+    const panelH = (game.mode === GameMode.ANNIVERSARY ? 285 : 260) * scaleY;
     const panelX = (w - panelW) / 2;
     const panelY = (h - panelH) / 2 - 20 * scaleY;
 
@@ -1370,37 +1383,54 @@ function drawLevelComplete(ctx) {
         ctx.textBaseline = 'middle';
         ctx.fillText('Happy Anniversary!', w / 2, panelY + 40 * scaleY);
 
-        // Flower icon
+        // Bouquet icon
         ctx.save();
         ctx.translate(w / 2, panelY + 115 * scaleY);
         const iconScale = 0.55 * s;
         ctx.scale(iconScale, iconScale);
-        // Stem
+        // Stems
         ctx.fillStyle = '#388E3C';
-        ctx.fillRect(-3, 0, 6, 30);
+        ctx.fillRect(-17, 8, 4, 25);
+        ctx.fillRect(-2, 0, 4, 30);
+        ctx.fillRect(13, 6, 4, 26);
         // Leaves
         ctx.fillStyle = '#43A047';
-        ctx.beginPath(); ctx.ellipse(-10, 15, 10, 5, -0.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(10, 22, 10, 5, 0.5, 0, Math.PI * 2); ctx.fill();
-        // 8 petals
-        ctx.fillStyle = '#E53935';
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            ctx.save(); ctx.rotate(angle);
-            ctx.beginPath(); ctx.ellipse(0, -12, 5, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-23, 18, 9, 4, -0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(7, 22, 9, 4, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(22, 20, 9, 4, 0.5, 0, Math.PI * 2); ctx.fill();
+        // Flower heads
+        const drawIconHead = (dx, dy, petalColor) => {
+            ctx.save(); ctx.translate(dx, dy);
+            ctx.fillStyle = petalColor;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                ctx.save(); ctx.rotate(angle);
+                ctx.beginPath(); ctx.ellipse(0, -12, 5, 9, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+            ctx.fillStyle = '#FDD835'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#F9A825'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
-        }
-        // Center
-        ctx.fillStyle = '#FDD835'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#F9A825'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+        };
+        drawIconHead(-15, 8, '#E53935');
+        drawIconHead(15, 6, '#FF7043');
+        drawIconHead(0, 0, '#E53935');
+        // Ribbon bow
+        ctx.fillStyle = '#F48FB1';
+        ctx.beginPath(); ctx.ellipse(-9, 30, 9, 5, -0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(9, 30, 9, 5, 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#E91E63'; ctx.beginPath(); ctx.arc(0, 30, 4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
         ctx.font = `${20 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#8B0000';
-        ctx.fillText('Suan, you made it!', w / 2, panelY + 150 * scaleY);
+        ctx.fillText('Suan, you made it!', w / 2, panelY + 155 * scaleY);
         ctx.font = `${16 * s}px Arial, sans-serif`;
         ctx.fillStyle = '#C62828';
-        ctx.fillText(`All ${ANNIVERSARY_TOTAL_PIPES} pipes cleared!`, w / 2, panelY + 175 * scaleY);
+        ctx.fillText(`All ${ANNIVERSARY_TOTAL_PIPES} pipes cleared!`, w / 2, panelY + 178 * scaleY);
+        ctx.font = `italic ${14 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#8B0000';
+        ctx.fillText('Shafi owes Suan a celebration!', w / 2, panelY + 200 * scaleY);
     } else {
         // HBD completion content
         ctx.font = `bold ${30 * s}px Arial, sans-serif`;
