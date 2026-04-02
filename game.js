@@ -45,6 +45,7 @@ const GameState = {
 };
 
 const GameMode = {
+    ANNIVERSARY: 'anniversary',
     HBD: 'hbd',
     CASUAL: 'casual',
 };
@@ -93,6 +94,9 @@ const HAPPY_BIRTHDAY_MELODY = [
 
 // HBD mode: one pipe per melody note
 const HBD_TOTAL_PIPES = HAPPY_BIRTHDAY_MELODY.length; // 25
+
+// Anniversary mode: 10 pipes
+const ANNIVERSARY_TOTAL_PIPES = 10;
 
 // --- Birthday Audio ---
 class BirthdayAudio {
@@ -239,6 +243,142 @@ class BirthdayAudio {
     }
 }
 
+// --- Anniversary Audio ---
+// Romantic melody: 10 notes (one per pipe) — gentle waltz-like phrase
+const ANNIVERSARY_MELODY = [
+    ['E4', 1], ['G4', 1], ['A4', 1], ['G4', 0.5], ['E4', 0.5],
+    ['D4', 1], ['E4', 1], ['G4', 1], ['B4', 1], ['A4', 2],
+];
+
+class AnniversaryAudio {
+    constructor() {
+        this.audioCtx = null;
+        this.isPlaying = false;
+        this.oscillators = [];
+        this.pianoOscs = [];
+        this.tempo = 90;
+        this.loopTimeout = null;
+    }
+
+    init() {
+        if (!this.audioCtx) {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+    }
+
+    play() {
+        if (this.isPlaying) return;
+        this.init();
+        this.isPlaying = true;
+        this.oscillators = [];
+
+        const beatDuration = 60 / this.tempo;
+        let currentTime = this.audioCtx.currentTime + 0.1;
+
+        for (const [note, beats] of ANNIVERSARY_MELODY) {
+            const freq = NOTE_FREQ[note];
+            if (!freq) { currentTime += beats * beatDuration; continue; }
+            const duration = beats * beatDuration;
+            this.playNote(freq, currentTime, duration * 0.9);
+            currentTime += duration;
+        }
+
+        const totalDuration = currentTime - this.audioCtx.currentTime;
+        this.loopTimeout = setTimeout(() => {
+            this.isPlaying = false;
+            if (game.state === GameState.PLAYING && game.mode === GameMode.ANNIVERSARY) {
+                this.play();
+            }
+        }, totalDuration * 1000);
+    }
+
+    playNote(frequency, startTime, duration) {
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.001, startTime);
+        gain.gain.linearRampToValueAtTime(0.13, startTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.05);
+
+        const osc2 = this.audioCtx.createOscillator();
+        const gain2 = this.audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.value = frequency * 2;
+        gain2.gain.setValueAtTime(0.001, startTime);
+        gain2.gain.linearRampToValueAtTime(0.025, startTime + 0.03);
+        gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration * 0.7);
+        osc2.connect(gain2);
+        gain2.connect(this.audioCtx.destination);
+        osc2.start(startTime);
+        osc2.stop(startTime + duration * 0.7 + 0.05);
+
+        this.oscillators.push(osc, osc2);
+    }
+
+    playPianoNote(noteIndex) {
+        this.init();
+        if (noteIndex < 0 || noteIndex >= ANNIVERSARY_MELODY.length) return;
+        const [note] = ANNIVERSARY_MELODY[noteIndex];
+        const freq = NOTE_FREQ[note];
+        if (!freq) return;
+
+        for (const osc of this.pianoOscs) {
+            try { osc.stop(); } catch (e) { /* already stopped */ }
+        }
+        this.pianoOscs = [];
+
+        const actx = this.audioCtx;
+        const now = actx.currentTime;
+        const duration = 0.5;
+
+        const osc = actx.createOscillator();
+        const gain = actx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.16, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(actx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.05);
+
+        const osc2 = actx.createOscillator();
+        const gain2 = actx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.value = freq * 2;
+        gain2.gain.setValueAtTime(0.001, now);
+        gain2.gain.linearRampToValueAtTime(0.035, now + 0.02);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + duration * 0.6);
+        osc2.connect(gain2);
+        gain2.connect(actx.destination);
+        osc2.start(now);
+        osc2.stop(now + duration * 0.6 + 0.05);
+
+        this.pianoOscs = [osc, osc2];
+    }
+
+    stop() {
+        this.isPlaying = false;
+        if (this.loopTimeout) {
+            clearTimeout(this.loopTimeout);
+            this.loopTimeout = null;
+        }
+        for (const osc of this.oscillators) {
+            try { osc.stop(); } catch (e) { /* already stopped */ }
+        }
+        this.oscillators = [];
+    }
+}
+
 // --- Bird Sprite Images ---
 const birdImages = {
     default: new Image(),
@@ -329,7 +469,85 @@ class Pipe {
         const capOverhang = 5;
         const w = PIPE_CONFIG.width;
 
-        if (game.mode === GameMode.HBD) {
+        if (game.mode === GameMode.ANNIVERSARY) {
+            // Anniversary-themed ribbon pipes (cream body, gold stripes, wine-red cap with heart)
+            const bodyColor = '#FFF8E1';
+            const stripeColor = '#FFD700';
+            const capColor = '#C62828';
+            const borderColor = '#8B0000';
+
+            // Top pipe body
+            ctx.fillStyle = bodyColor;
+            ctx.fillRect(this.x, 0, w, this.topHeight);
+            // Gold diagonal stripes
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(this.x, 0, w, this.topHeight - capHeight);
+            ctx.clip();
+            ctx.fillStyle = stripeColor;
+            const stripeW = 12;
+            for (let sy = -w; sy < this.topHeight + w; sy += stripeW * 2) {
+                ctx.beginPath();
+                ctx.moveTo(this.x, sy);
+                ctx.lineTo(this.x + w, sy + w);
+                ctx.lineTo(this.x + w, sy + w + stripeW);
+                ctx.lineTo(this.x, sy + stripeW);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+            // Top pipe cap
+            ctx.fillStyle = capColor;
+            ctx.fillRect(this.x - capOverhang, this.topHeight - capHeight, w + capOverhang * 2, capHeight);
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - capOverhang, this.topHeight - capHeight, w + capOverhang * 2, capHeight);
+            // Heart on top cap
+            const hcx = this.x + w / 2;
+            const hcy = this.topHeight - capHeight / 2;
+            const hs = 5;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.moveTo(hcx, hcy + hs * 0.6);
+            ctx.bezierCurveTo(hcx - hs * 1.2, hcy - hs * 0.5, hcx - hs * 1.2, hcy - hs * 1.5, hcx, hcy - hs * 0.7);
+            ctx.bezierCurveTo(hcx + hs * 1.2, hcy - hs * 1.5, hcx + hs * 1.2, hcy - hs * 0.5, hcx, hcy + hs * 0.6);
+            ctx.fill();
+
+            // Bottom pipe body
+            ctx.fillStyle = bodyColor;
+            ctx.fillRect(this.x, this.bottomY, w, GROUND.y - this.bottomY);
+            // Gold diagonal stripes
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(this.x, this.bottomY + capHeight, w, GROUND.y - this.bottomY - capHeight);
+            ctx.clip();
+            ctx.fillStyle = stripeColor;
+            for (let sy = this.bottomY - w; sy < GROUND.y + w; sy += stripeW * 2) {
+                ctx.beginPath();
+                ctx.moveTo(this.x, sy);
+                ctx.lineTo(this.x + w, sy + w);
+                ctx.lineTo(this.x + w, sy + w + stripeW);
+                ctx.lineTo(this.x, sy + stripeW);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+            // Bottom pipe cap
+            ctx.fillStyle = capColor;
+            ctx.fillRect(this.x - capOverhang, this.bottomY, w + capOverhang * 2, capHeight);
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - capOverhang, this.bottomY, w + capOverhang * 2, capHeight);
+            // Heart on bottom cap
+            const bhcx = this.x + w / 2;
+            const bhcy = this.bottomY + capHeight / 2;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.moveTo(bhcx, bhcy + hs * 0.6);
+            ctx.bezierCurveTo(bhcx - hs * 1.2, bhcy - hs * 0.5, bhcx - hs * 1.2, bhcy - hs * 1.5, bhcx, bhcy - hs * 0.7);
+            ctx.bezierCurveTo(bhcx + hs * 1.2, bhcy - hs * 1.5, bhcx + hs * 1.2, bhcy - hs * 0.5, bhcx, bhcy + hs * 0.6);
+            ctx.fill();
+        } else if (game.mode === GameMode.HBD) {
             // Birthday-themed candle pipes
             const bodyColor = '#F8BBD0';
             const stripeColor = '#F48FB1';
@@ -489,7 +707,7 @@ const game = {
     state: GameState.MENU,
     mode: null,
     score: 0,
-    highScores: { hbd: 0, casual: 0 },
+    highScores: { hbd: 0, casual: 0, anniversary: 0 },
     bird: null,
     pipes: [],
     pipeTimer: 0,
@@ -518,6 +736,7 @@ const game = {
     leaderboardError: false,
     // UI button refs
     playBtn: null,
+    anniversaryBtn: null,
     hbdBtn: null,
     casualBtn: null,
     backBtn: null,
@@ -534,6 +753,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const gameContainer = document.getElementById('game-container');
 const birthdayAudio = new BirthdayAudio();
+const anniversaryAudio = new AnniversaryAudio();
 
 // Cached display dimensions (updated in resizeCanvas)
 let gameDisplayW = GAME_WIDTH;
@@ -722,7 +942,7 @@ function drawLevelSelect(ctx) {
 
     // Centered layout
     const centerY = GAME_HEIGHT / 2;
-    const contentStart = centerY - 130;
+    const contentStart = centerY - 155;
 
     // Title
     const titleY = (contentStart + game.safeArea.top) * scaleY;
@@ -732,9 +952,13 @@ function drawLevelSelect(ctx) {
     ctx.textBaseline = 'middle';
     ctx.fillText('Choose Mode', w / 2, titleY);
 
-    // HBD button
     const btnW = 230 * scaleX;
     const btnH = 70 * scaleY;
+
+    // ANNIVERSARY button (above HBD)
+    const annivY = (contentStart + 42) * scaleY;
+    drawButton(ctx, 'ANNIVERSARY', (w - btnW) / 2, annivY, btnW, btnH, '#C62828', '#8B0000');
+    game.anniversaryBtn = { x: (w - btnW) / 2, y: annivY, w: btnW, h: btnH };
 
     // On March 15: HBD=darker, CASUAL=lighter (default). Any other day: swap colors.
     const today = new Date();
@@ -744,19 +968,19 @@ function drawLevelSelect(ctx) {
     const caseBg     = isMarch15 ? '#F48FB1' : '#EC407A';
     const caseBorder = isMarch15 ? '#EC407A' : '#C2185B';
 
-    const hbdY = (contentStart + 42) * scaleY;
+    const hbdY = (contentStart + 122) * scaleY;
     drawButton(ctx, 'HBD', (w - btnW) / 2, hbdY, btnW, btnH, hbdBg, hbdBorder);
     game.hbdBtn = { x: (w - btnW) / 2, y: hbdY, w: btnW, h: btnH };
 
     // CASUAL button
-    const casualY = (contentStart + 132) * scaleY;
+    const casualY = (contentStart + 202) * scaleY;
     drawButton(ctx, 'CASUAL', (w - btnW) / 2, casualY, btnW, btnH, caseBg, caseBorder);
     game.casualBtn = { x: (w - btnW) / 2, y: casualY, w: btnW, h: btnH };
 
     // BACK button
     const backW = 110 * scaleX;
     const backH = 44 * scaleY;
-    const backY = (contentStart + 225) * scaleY;
+    const backY = (contentStart + 290) * scaleY;
     drawButton(ctx, 'BACK', (w - backW) / 2, backY, backW, backH, '#E0E0E0', '#BDBDBD', '#666');
     game.backBtn = { x: (w - backW) / 2, y: backY, w: backW, h: backH };
 
@@ -814,6 +1038,55 @@ function drawCake(ctx) {
     ctx.restore();
 }
 
+function drawFlower(ctx) {
+    if (!game.cakeActive || game.mode !== GameMode.ANNIVERSARY) return;
+    const { scaleX, scaleY } = getScale();
+    const flowerScale = 5;
+    const cx = game.cakeX * scaleX;
+    const cy = (GROUND.y - 6 * flowerScale) * scaleY;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scaleX * flowerScale, scaleY * flowerScale);
+
+    // Stem
+    ctx.fillStyle = '#388E3C';
+    ctx.fillRect(-3, 0, 6, 30);
+
+    // Leaves
+    ctx.fillStyle = '#43A047';
+    ctx.beginPath();
+    ctx.ellipse(-10, 15, 10, 5, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(10, 22, 10, 5, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 8 petals
+    ctx.fillStyle = '#E53935';
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.ellipse(0, -12, 5, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Center
+    ctx.fillStyle = '#FDD835';
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#F9A825';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
 function drawPlayingState(ctx) {
     const { scaleX, scaleY } = getScale();
 
@@ -827,8 +1100,9 @@ function drawPlayingState(ctx) {
     }
     ctx.restore();
 
-    // Cake
+    // Cake / Flower
     drawCake(ctx);
+    drawFlower(ctx);
 
     drawGroundFn(ctx);
 
@@ -868,7 +1142,7 @@ function drawGameOver(ctx) {
     ctx.fillRect(0, 0, w, h);
 
     const isCasual = game.mode === GameMode.CASUAL;
-    const modeKey = isCasual ? 'casual' : 'hbd';
+    const modeKey = isCasual ? 'casual' : game.mode === GameMode.ANNIVERSARY ? 'anniversary' : 'hbd';
     const playerUID = getPlayerUID();
 
     // Panel sizing — casual expands to fit leaderboard
@@ -1088,45 +1362,86 @@ function drawLevelComplete(ctx) {
     ctx.lineWidth = 3;
     roundRect(ctx, panelX, panelY, panelW, panelH, 16, false, true);
 
-    // Birthday message
-    ctx.font = `bold ${30 * s}px Arial, sans-serif`;
-    ctx.fillStyle = '#C2185B';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Happy Birthday!', w / 2, panelY + 40 * scaleY);
+    if (game.mode === GameMode.ANNIVERSARY) {
+        // Anniversary completion content
+        ctx.font = `bold ${28 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#8B0000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Happy Anniversary!', w / 2, panelY + 40 * scaleY);
 
-    // Cake icon (matches in-game cake)
-    ctx.save();
-    ctx.translate(w / 2, panelY + 115 * scaleY);
-    const iconScale = 0.7 * s;
-    ctx.scale(iconScale, iconScale);
-    // Bottom tier
-    ctx.fillStyle = '#FFCCBC';
-    ctx.fillRect(-35, -25, 70, 30);
-    // Top tier
-    ctx.fillStyle = '#F8BBD0';
-    ctx.fillRect(-25, -48, 50, 23);
-    // Frosting
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(-35, -25, 70, 5);
-    ctx.fillRect(-25, -48, 50, 5);
-    // Candle
-    ctx.fillStyle = '#F44336';
-    ctx.fillRect(-3, -63, 6, 15);
-    // Flame
-    ctx.fillStyle = '#FF9800';
-    ctx.beginPath();
-    ctx.ellipse(0, -68, 4, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+        // Flower icon
+        ctx.save();
+        ctx.translate(w / 2, panelY + 115 * scaleY);
+        const iconScale = 0.55 * s;
+        ctx.scale(iconScale, iconScale);
+        // Stem
+        ctx.fillStyle = '#388E3C';
+        ctx.fillRect(-3, 0, 6, 30);
+        // Leaves
+        ctx.fillStyle = '#43A047';
+        ctx.beginPath(); ctx.ellipse(-10, 15, 10, 5, -0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(10, 22, 10, 5, 0.5, 0, Math.PI * 2); ctx.fill();
+        // 8 petals
+        ctx.fillStyle = '#E53935';
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            ctx.save(); ctx.rotate(angle);
+            ctx.beginPath(); ctx.ellipse(0, -12, 5, 9, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        // Center
+        ctx.fillStyle = '#FDD835'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#F9A825'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
 
-    // Message
-    ctx.font = `${20 * s}px Arial, sans-serif`;
-    ctx.fillStyle = '#AD1457';
-    ctx.fillText('Suan, you made it!', w / 2, panelY + 150 * scaleY);
-    ctx.font = `${16 * s}px Arial, sans-serif`;
-    ctx.fillStyle = '#EC407A';
-    ctx.fillText(`All ${HBD_TOTAL_PIPES} pipes cleared!`, w / 2, panelY + 175 * scaleY);
+        ctx.font = `${20 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#8B0000';
+        ctx.fillText('Suan, you made it!', w / 2, panelY + 150 * scaleY);
+        ctx.font = `${16 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#C62828';
+        ctx.fillText(`All ${ANNIVERSARY_TOTAL_PIPES} pipes cleared!`, w / 2, panelY + 175 * scaleY);
+    } else {
+        // HBD completion content
+        ctx.font = `bold ${30 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#C2185B';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Happy Birthday!', w / 2, panelY + 40 * scaleY);
+
+        // Cake icon (matches in-game cake)
+        ctx.save();
+        ctx.translate(w / 2, panelY + 115 * scaleY);
+        const iconScale = 0.7 * s;
+        ctx.scale(iconScale, iconScale);
+        // Bottom tier
+        ctx.fillStyle = '#FFCCBC';
+        ctx.fillRect(-35, -25, 70, 30);
+        // Top tier
+        ctx.fillStyle = '#F8BBD0';
+        ctx.fillRect(-25, -48, 50, 23);
+        // Frosting
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-35, -25, 70, 5);
+        ctx.fillRect(-25, -48, 50, 5);
+        // Candle
+        ctx.fillStyle = '#F44336';
+        ctx.fillRect(-3, -63, 6, 15);
+        // Flame
+        ctx.fillStyle = '#FF9800';
+        ctx.beginPath();
+        ctx.ellipse(0, -68, 4, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Message
+        ctx.font = `${20 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#AD1457';
+        ctx.fillText('Suan, you made it!', w / 2, panelY + 150 * scaleY);
+        ctx.font = `${16 * s}px Arial, sans-serif`;
+        ctx.fillStyle = '#EC407A';
+        ctx.fillText(`All ${HBD_TOTAL_PIPES} pipes cleared!`, w / 2, panelY + 175 * scaleY);
+    }
 
     // Buttons
     const retryW = 120 * scaleX;
@@ -1333,10 +1648,10 @@ function startGame(mode) {
     game.showLevelComplete = false;
     game.autopilot = false;
     game.autopilotDelay = 0;
-    if (mode === GameMode.HBD) {
+    if (mode === GameMode.HBD || mode === GameMode.ANNIVERSARY) {
         game.cakeActive = true;
-        // Position cake far right — past where all 25 pipes will be
-        game.cakeX = GAME_WIDTH + (HBD_TOTAL_PIPES + 1) * PIPE_CONFIG.spawnInterval * PIPE_CONFIG.speed + 250;
+        const totalPipes = mode === GameMode.HBD ? HBD_TOTAL_PIPES : ANNIVERSARY_TOTAL_PIPES;
+        game.cakeX = GAME_WIDTH + (totalPipes + 1) * PIPE_CONFIG.spawnInterval * PIPE_CONFIG.speed + 250;
     } else {
         game.cakeActive = false;
         game.cakeX = 0;
@@ -1356,7 +1671,10 @@ function startGame(mode) {
     game.leaderboardError = false;
 
     if (mode === GameMode.HBD) {
-        birthdayAudio.init(); // init AudioContext but don't play melody yet
+        birthdayAudio.init();
+    }
+    if (mode === GameMode.ANNIVERSARY) {
+        anniversaryAudio.init();
     }
 }
 
@@ -1369,12 +1687,14 @@ function gameOver() {
     if (game.mode === GameMode.HBD) {
         birthdayAudio.stop();
     }
+    if (game.mode === GameMode.ANNIVERSARY) {
+        anniversaryAudio.stop();
+    }
 }
 
 function spawnPipe() {
-    if (game.mode === GameMode.HBD && game.totalPipesSpawned >= HBD_TOTAL_PIPES) {
-        return;
-    }
+    if (game.mode === GameMode.HBD && game.totalPipesSpawned >= HBD_TOTAL_PIPES) return;
+    if (game.mode === GameMode.ANNIVERSARY && game.totalPipesSpawned >= ANNIVERSARY_TOTAL_PIPES) return;
     game.totalPipesSpawned++;
     game.pipes.push(new Pipe(game.totalPipesSpawned));
 }
@@ -1395,7 +1715,9 @@ function checkScoring() {
             pipe.passed = true;
             game.score++;
             if (game.mode === GameMode.HBD) {
-                birthdayAudio.playPianoNote(game.score - 1); // play melody note for this pipe
+                birthdayAudio.playPianoNote(game.score - 1);
+            } else if (game.mode === GameMode.ANNIVERSARY) {
+                anniversaryAudio.playPianoNote(game.score - 1);
             } else {
                 playScoreSound();
             }
@@ -1405,7 +1727,10 @@ function checkScoring() {
             game.bird.faceTimer = 20; // ~0.33 seconds at 60fps
 
             if (game.mode === GameMode.HBD && game.score >= HBD_TOTAL_PIPES && !game.autopilot && game.autopilotDelay === 0) {
-                game.autopilotDelay = 90; // ~1.5 seconds of free control before autopilot
+                game.autopilotDelay = 90;
+            }
+            if (game.mode === GameMode.ANNIVERSARY && game.score >= ANNIVERSARY_TOTAL_PIPES && !game.autopilot && game.autopilotDelay === 0) {
+                game.autopilotDelay = 90;
             }
 
             if (game.mode === GameMode.CASUAL && game.score === 50 && !game.chocolateShown) {
@@ -1435,9 +1760,10 @@ function checkCakeCollision() {
         game.bird.face = 'surprised';
         game.bird.faceTimer = 120; // keep surprised face for ~2 seconds
         game.cakeReached = true;
-        game.levelCompleteDelay = 90; // ~1.5 seconds delay before showing modal
+        game.levelCompleteDelay = 90;
         game.showLevelComplete = false;
-        birthdayAudio.play(); // play the full Happy Birthday melody
+        if (game.mode === GameMode.HBD) birthdayAudio.play();
+        else if (game.mode === GameMode.ANNIVERSARY) anniversaryAudio.play();
         saveHighScore();
     }
 }
@@ -1532,8 +1858,8 @@ function update() {
         game.bird.velocity = 0;
     }
 
-    // HBD cake
-    if (game.mode === GameMode.HBD && game.cakeActive) {
+    // HBD cake / Anniversary flower
+    if ((game.mode === GameMode.HBD || game.mode === GameMode.ANNIVERSARY) && game.cakeActive) {
         if (!game.cakeReached) {
             game.cakeX -= PIPE_CONFIG.speed;
         }
@@ -1593,6 +1919,7 @@ function handleTap(clientX, clientY) {
     if (!game.audioInitialized) {
         game.audioInitialized = true;
         birthdayAudio.init();
+        anniversaryAudio.init();
     }
 
     const x = clientX;
@@ -1606,7 +1933,9 @@ function handleTap(clientX, clientY) {
             break;
 
         case GameState.LEVEL_SELECT:
-            if (hitTest(x, y, game.hbdBtn)) {
+            if (hitTest(x, y, game.anniversaryBtn)) {
+                startGame(GameMode.ANNIVERSARY);
+            } else if (hitTest(x, y, game.hbdBtn)) {
                 startGame(GameMode.HBD);
             } else if (hitTest(x, y, game.casualBtn)) {
                 if (!getPlayerName()) {
@@ -1759,7 +2088,9 @@ function loadHighScores() {
 }
 
 function saveHighScore() {
-    const key = game.mode === GameMode.HBD ? 'hbd' : 'casual';
+    const key = game.mode === GameMode.HBD ? 'hbd'
+              : game.mode === GameMode.ANNIVERSARY ? 'anniversary'
+              : 'casual';
     if (game.score > game.highScores[key]) {
         game.highScores[key] = game.score;
         game.isNewHighScore = true;
